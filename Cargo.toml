@@ -2,5 +2,19 @@
 name = "uestc-client"
 version = "0.1.0"
 edition = "2024"
+description = "A minimal reqwest client for UESTC."
+
+[features]
+default = ["async"]
+async = ["dep:tokio"]
+blocking = ["reqwest/blocking"]
 
 [dependencies]
+reqwest = { version = "0.12", default-features = false, features = ["json", "cookies", "http2", "system-proxy", "default-tls"] }
+tokio = { version = "1", features = ["full"], optional = true }
+thiserror = "2"
+scraper = "0.2"
+aes = "0.8"
+cbc = "0.1"
+base64 = "0.22"
+rand = "0.9"
