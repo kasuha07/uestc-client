@@ -1,5 +1,5 @@
 use crate::Result;
-use reqwest::Client;
+use reqwest::{Client, header};
 
 pub struct UestcClient {
     client: Client,
@@ -7,7 +7,57 @@ pub struct UestcClient {
 
 impl UestcClient {
     pub fn new() -> Self {
-        unimplemented!("Not implemented yet")
+        // global headers
+        let mut headers = header::HeaderMap::new();
+        // common headers
+        headers.insert(header::ACCEPT, header::HeaderValue::from_static("text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7"));
+        headers.insert(
+            header::ACCEPT_LANGUAGE,
+            header::HeaderValue::from_static("zh-CN,zh;q=0.9"),
+        );
+        headers.insert(
+            header::CACHE_CONTROL,
+            header::HeaderValue::from_static("no-cache"),
+        );
+        headers.insert(
+            header::UPGRADE_INSECURE_REQUESTS,
+            header::HeaderValue::from_static("1"),
+        );
+        headers.insert(header::PRAGMA, header::HeaderValue::from_static("no-cache"));
+        headers.insert(header::DNT, header::HeaderValue::from_static("1"));
+        headers.insert(header::USER_AGENT, header::HeaderValue::from_static("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36"));
+
+        // Sec-Fetch headers
+        headers.insert(
+            "Sec-Fetch-Dest",
+            header::HeaderValue::from_static("document"),
+        );
+        headers.insert(
+            "Sec-Fetch-Mode",
+            header::HeaderValue::from_static("navigate"),
+        );
+        headers.insert("Sec-Fetch-Site", header::HeaderValue::from_static("none"));
+        headers.insert("Sec-Fetch-User", header::HeaderValue::from_static("?1"));
+
+        // Sec-Ch-Ua headers
+        headers.insert(
+            "Sec-Ch-Ua",
+            header::HeaderValue::from_static(r#""Not_A Brand";v="99", "Chromium";v="142""#),
+        );
+        headers.insert("Sec-Ch-Ua-Mobile", header::HeaderValue::from_static("?0"));
+        headers.insert(
+            "Sec-Ch-Ua-Platform",
+            header::HeaderValue::from_static(r#""Windows""#),
+        );
+
+        // build client
+        let client = Client::builder()
+            .default_headers(headers)
+            .cookie_store(true)
+            .build()
+            .expect("Failed to build client");
+
+        Self { client }
     }
 
     pub fn with_client(client: Client) -> Self {
@@ -19,9 +69,21 @@ impl UestcClient {
     }
 }
 
-impl Default for UestcClient {
-    fn default() -> Self {
-        Self::new()
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[tokio::test]
+    async fn test_new() {
+        let _client = UestcClient::new();
+        assert!(true);
+    }
+
+    #[tokio::test]
+    async fn test_with_client() {
+        use reqwest::Client;
+        let req_client = Client::new();
+        let _client = UestcClient::with_client(req_client);
+        assert!(true);
     }
 }
-
