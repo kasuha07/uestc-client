@@ -5,6 +5,7 @@ use std::collections::HashMap;
 #[derive(Debug, Clone)]
 pub struct LoginPageInfo {
     /// The URL path to the encryption script
+    #[allow(unused)]
     pub encrypt_script_path: Option<String>,
     /// The value of the input with id "pwdEncryptSalt"
     pub pwd_encrypt_salt: String,
