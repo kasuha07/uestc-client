@@ -63,7 +63,6 @@ pub fn parse_login_page(html: &str) -> Result<LoginPageInfo> {
     })
 }
 
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -86,12 +85,21 @@ mod tests {
 
         // 验证解析结果
         // 验证加密脚本路径
-        assert!(info.encrypt_script_path.is_some(), "encrypt_script_path should be found");
+        assert!(
+            info.encrypt_script_path.is_some(),
+            "encrypt_script_path should be found"
+        );
         let script_path = info.encrypt_script_path.as_ref().unwrap();
-        assert!(script_path.contains("encrypt"), "script path should contain 'encrypt'");
+        assert!(
+            script_path.contains("encrypt"),
+            "script path should contain 'encrypt'"
+        );
 
         // 验证 pwdEncryptSalt
-        assert!(!info.pwd_encrypt_salt.is_empty(), "pwd_encrypt_salt should not be empty");
+        assert!(
+            !info.pwd_encrypt_salt.is_empty(),
+            "pwd_encrypt_salt should not be empty"
+        );
         println!("pwdEncryptSalt: {}", info.pwd_encrypt_salt);
 
         // 验证表单数据

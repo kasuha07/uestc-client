@@ -79,14 +79,13 @@ pub fn encrypt_password(password: &str, pwd_encrypt_salt: &str) -> Result<String
             return Err(UestcClientError::CryptoError(format!(
                 "Invalid key length: {}",
                 key.len()
-            )))
+            )));
         }
     }
 
     use base64::Engine as _;
     Ok(base64::engine::general_purpose::STANDARD.encode(ciphertext))
 }
-
 
 #[cfg(test)]
 mod tests {
@@ -100,12 +99,12 @@ mod tests {
         let salt = "1234567890123456";
         let result = encrypt_password(password, salt);
         assert!(result.is_ok());
-        
+
         let encrypted = result.unwrap();
         let decoded = base64::engine::general_purpose::STANDARD
             .decode(&encrypted)
             .expect("Should decode base64");
-        
+
         // Output length should be a multiple of 16 (block size)
         assert_eq!(decoded.len() % 16, 0);
         // Length check: 64 (prefix) + 11 (password) + padding.
@@ -138,7 +137,7 @@ mod tests {
         let salt = "short";
         let result = encrypt_password(password, salt);
         assert!(result.is_err());
-        
+
         match result {
             Err(UestcClientError::CryptoError(msg)) => {
                 assert!(msg.contains("Invalid key length"));
@@ -151,10 +150,10 @@ mod tests {
     fn test_randomness() {
         let password = "password123";
         let salt = "1234567890123456";
-        
+
         let result1 = encrypt_password(password, salt).unwrap();
         let result2 = encrypt_password(password, salt).unwrap();
-        
+
         // Should be different because of random IV and prefix
         assert_ne!(result1, result2);
     }

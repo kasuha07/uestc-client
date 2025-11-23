@@ -1,5 +1,5 @@
-mod core;
 mod client;
+mod core;
 
 #[cfg(feature = "async")]
 pub use client::UestcClient;
@@ -22,6 +22,9 @@ pub enum UestcClientError {
 
     #[error("Login failed: {0}")]
     LoginFailed(String),
+
+    #[error("Logout failed: {0}")]
+    LogoutFailed(String),
 }
 
 pub type Result<T> = std::result::Result<T, UestcClientError>;
