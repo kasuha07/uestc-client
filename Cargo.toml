@@ -2,6 +2,9 @@
 name = "uestc-client"
 version = "0.1.0"
 edition = "2024"
+license = "MIT"
+authors = ["kasuha07 <me@kasuha.com>"]
+repository = "https://github.com/kasuha07/uestc-client"
 description = "A minimal reqwest client for UESTC."
 
 [features]
