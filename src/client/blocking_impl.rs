@@ -1,6 +1,7 @@
 use super::{AUTH_SERVER_URL, DEFAULT_SERVICE_URL};
 use crate::{Result, UestcClientError, core};
-use reqwest::blocking::Client;
+use reqwest::blocking::{Client, RequestBuilder};
+use reqwest::{IntoUrl, Method};
 
 pub struct UestcBlockingClient {
     client: Client,
@@ -91,6 +92,34 @@ impl UestcBlockingClient {
             "Error code: {}",
             resp.status()
         )))
+    }
+
+    pub fn request<U: IntoUrl>(&self, method: Method, url: U) -> RequestBuilder {
+        self.client.request(method, url)
+    }
+
+    pub fn get<U: IntoUrl>(&self, url: U) -> RequestBuilder {
+        self.request(Method::GET, url)
+    }
+
+    pub fn post<U: IntoUrl>(&self, url: U) -> RequestBuilder {
+        self.request(Method::POST, url)
+    }
+
+    pub fn put<U: IntoUrl>(&self, url: U) -> RequestBuilder {
+        self.request(Method::PUT, url)
+    }
+
+    pub fn patch<U: IntoUrl>(&self, url: U) -> RequestBuilder {
+        self.request(Method::PATCH, url)
+    }
+
+    pub fn delete<U: IntoUrl>(&self, url: U) -> RequestBuilder {
+        self.request(Method::DELETE, url)
+    }
+
+    pub fn head<U: IntoUrl>(&self, url: U) -> RequestBuilder {
+        self.request(Method::HEAD, url)
     }
 }
 
