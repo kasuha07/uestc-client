@@ -5,7 +5,7 @@ mod core;
 pub use client::UestcClient;
 
 #[cfg(feature = "blocking")]
-pub use client::UestcBlockingClient as UestcClient;
+pub use client::UestcBlockingClient;
 
 use thiserror::Error;
 
