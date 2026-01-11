@@ -25,6 +25,9 @@ pub enum UestcClientError {
 
     #[error("Logout failed: {0}")]
     LogoutFailed(String),
+
+    #[error("Cookie error: {0}")]
+    CookieError(String),
 }
 
 pub type Result<T> = std::result::Result<T, UestcClientError>;

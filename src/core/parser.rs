@@ -64,6 +64,20 @@ pub fn parse_login_page(html: &str) -> Result<LoginPageInfo> {
     })
 }
 
+/// Extract error message from login response HTML
+pub fn extract_error_message(html: &str) -> Option<String> {
+    let document = Html::parse_document(html);
+    let error_selector = Selector::parse("span#showErrorTip").ok()?;
+
+    document
+        .select(&error_selector)
+        .next()
+        .and_then(|el| {
+            let text = el.text().collect::<String>().trim().to_string();
+            if text.is_empty() { None } else { Some(text) }
+        })
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

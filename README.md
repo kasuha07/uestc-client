@@ -8,7 +8,8 @@ A minimal reqwest client for UESTC (University of Electronic Science and Technol
 
 - **Async & Blocking**: Supports both asynchronous (tokio) and blocking APIs.
 - **Login/Logout**: Handles the login flow (including password encryption) and logout.
-- **Session Management**: Automatically manages cookies for authenticated requests.
+- **Automatic Cookie Persistence**: Transparently saves and loads cookies, just like a browser.
+- **Session Management**: Automatically checks if session is active before logging in.
 - **Reqwest Wrapper**: Exposes `reqwest`'s request builder for full flexibility.
 
 ## Installation
@@ -37,11 +38,12 @@ use uestc_client::UestcClient;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
+    // Create a new client with automatic cookie persistence
     let client = UestcClient::new();
 
-    // Login to the authentication server
-    // You can provide a specific service URL or use `None` for the default one.
-    client.login("your_student_id", "your_password", None).await?;
+    // Login - cookies are automatically saved and reused
+    // If valid cookies exist, login is skipped automatically
+    client.login("your_student_id", "your_password").await?;
 
     // Now you can make authenticated requests
     let resp = client.get("https://eportal.uestc.edu.cn/new/index.html")
@@ -50,11 +52,18 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     println!("Response status: {}", resp.status());
 
-    // Logout when done
+    // Logout when done (clears cookies)
     client.logout().await?;
 
     Ok(())
 }
+```
+
+You can also specify a custom cookie file path:
+
+```rust
+let client = UestcClient::with_cookie_file("my_cookies.json");
+client.login("your_student_id", "your_password").await?;
 ```
 
 ### Blocking Client
@@ -67,8 +76,8 @@ use uestc_client::UestcBlockingClient;
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let client = UestcBlockingClient::new();
 
-    // Login
-    client.login("your_student_id", "your_password", None)?;
+    // Login - cookies are automatically managed
+    client.login("your_student_id", "your_password")?;
 
     // Authenticated request
     let resp = client.get("https://eportal.uestc.edu.cn/new/index.html")

@@ -13,8 +13,6 @@ pub use async_impl::UestcClient;
 pub use blocking_impl::UestcBlockingClient;
 
 pub(crate) const AUTH_SERVER_URL: &str = "https://idas.uestc.edu.cn/authserver";
-pub(crate) const DEFAULT_SERVICE_URL: &str =
-    "https://eportal.uestc.edu.cn/new/index.html?browser=no";
 
 pub(crate) fn default_headers() -> header::HeaderMap {
     let mut headers = header::HeaderMap::new();
