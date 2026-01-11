@@ -18,7 +18,7 @@ Add this to your `Cargo.toml`:
 
 ```toml
 [dependencies]
-uestc-client = "0.1.0"
+uestc-client = "0.2.0"
 tokio = { version = "1", features = ["full"] }
 ```
 
@@ -26,7 +26,7 @@ To use the blocking client, enable the `blocking` feature:
 
 ```toml
 [dependencies]
-uestc-client = { version = "0.1.0", features = ["blocking"] }
+uestc-client = { version = "0.2.0", features = ["blocking"] }
 ```
 
 ## Usage
