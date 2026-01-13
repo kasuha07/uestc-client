@@ -7,7 +7,9 @@ A minimal reqwest client for UESTC (University of Electronic Science and Technol
 ## Features
 
 - **Async & Blocking**: Supports both asynchronous (tokio) and blocking APIs.
-- **Login/Logout**: Handles the login flow (including password encryption) and logout.
+- **Multiple Login Methods**:
+  - Username/password login with automatic password encryption
+  - WeChat QR code login via terminal
 - **Automatic Cookie Persistence**: Transparently saves and loads cookies, just like a browser.
 - **Session Management**: Automatically checks if session is active before logging in.
 - **Reqwest Wrapper**: Exposes `reqwest`'s request builder for full flexibility.
@@ -18,7 +20,7 @@ Add this to your `Cargo.toml`:
 
 ```toml
 [dependencies]
-uestc-client = "0.2.1"
+uestc-client = "0.3.0"
 tokio = { version = "1", features = ["full"] }
 ```
 
@@ -32,6 +34,8 @@ uestc-client = { version = "0.2.1", features = ["blocking"] }
 ## Usage
 
 ### Async Client (Default)
+
+#### Username/Password Login
 
 ```rust
 use uestc_client::UestcClient;
@@ -59,6 +63,31 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 }
 ```
 
+#### WeChat QR Code Login
+
+```rust
+use uestc_client::UestcClient;
+
+#[tokio::main]
+async fn main() -> Result<(), Box<dyn std::error::Error>> {
+    // Create a new client
+    let client = UestcClient::new();
+
+    // Login using WeChat QR code
+    // A QR code will be displayed in the terminal for you to scan
+    client.wechat_login().await?;
+
+    // Session is now active
+    let resp = client.get("https://eportal.uestc.edu.cn/new/index.html")
+        .send()
+        .await?;
+
+    println!("Response status: {}", resp.status());
+
+    Ok(())
+}
+```
+
 You can also specify a custom cookie file path:
 
 ```rust
@@ -69,6 +98,8 @@ client.login("your_student_id", "your_password").await?;
 ### Blocking Client
 
 Enable the `blocking` feature in your `Cargo.toml`.
+
+#### Username/Password Login
 
 ```rust
 use uestc_client::UestcBlockingClient;
@@ -90,6 +121,45 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     Ok(())
 }
+```
+
+#### WeChat QR Code Login
+
+```rust
+use uestc_client::UestcBlockingClient;
+
+fn main() -> Result<(), Box<dyn std::error::Error>> {
+    let client = UestcBlockingClient::new();
+
+    // Login using WeChat QR code
+    // A QR code will be displayed in the terminal for you to scan
+    client.wechat_login()?;
+
+    // Session is now active
+    let resp = client.get("https://eportal.uestc.edu.cn/new/index.html")
+        .send()?;
+
+    println!("Response status: {}", resp.status());
+
+    Ok(())
+}
+```
+
+## Examples
+
+The repository includes working examples in the `examples/` directory:
+
+- `async_wechat_login.rs` - Async WeChat QR code login
+- `blocking_wechat_login.rs` - Blocking WeChat QR code login
+
+Run them with:
+
+```bash
+# Async WeChat login (default features)
+cargo run --example async_wechat_login
+
+# Blocking WeChat login
+cargo run --no-default-features --features blocking --example blocking_wechat_login
 ```
 
 ## License

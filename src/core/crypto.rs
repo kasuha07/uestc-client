@@ -17,6 +17,12 @@ fn random_string(len: usize) -> String {
 }
 
 pub fn encrypt_password(password: &str, pwd_encrypt_salt: &str) -> Result<String> {
+    log::debug!(
+        "Starting password encryption (password length: {}, salt length: {})",
+        password.len(),
+        pwd_encrypt_salt.len()
+    );
+
     let salt = pwd_encrypt_salt.trim();
     let key = salt.as_bytes();
 
@@ -37,8 +43,12 @@ pub fn encrypt_password(password: &str, pwd_encrypt_salt: &str) -> Result<String
 
     match key.len() {
         16 => {
-            let cipher = Aes128::new_from_slice(key)
-                .map_err(|e| UestcClientError::CryptoError(e.to_string()))?;
+            log::debug!("Using AES-128 encryption");
+            let cipher = Aes128::new_from_slice(key).map_err(|e| UestcClientError::CryptoError {
+                message: format!("Failed to create AES-128 cipher: {}", e),
+                key_length: Some(key.len()),
+                source: None,
+            })?;
             for chunk in padded_input.chunks(16) {
                 let mut block = GenericArray::clone_from_slice(chunk);
                 for (b, v) in block.iter_mut().zip(current_iv.iter()) {
@@ -50,8 +60,12 @@ pub fn encrypt_password(password: &str, pwd_encrypt_salt: &str) -> Result<String
             }
         }
         24 => {
-            let cipher = Aes192::new_from_slice(key)
-                .map_err(|e| UestcClientError::CryptoError(e.to_string()))?;
+            log::debug!("Using AES-192 encryption");
+            let cipher = Aes192::new_from_slice(key).map_err(|e| UestcClientError::CryptoError {
+                message: format!("Failed to create AES-192 cipher: {}", e),
+                key_length: Some(key.len()),
+                source: None,
+            })?;
             for chunk in padded_input.chunks(16) {
                 let mut block = GenericArray::clone_from_slice(chunk);
                 for (b, v) in block.iter_mut().zip(current_iv.iter()) {
@@ -63,8 +77,12 @@ pub fn encrypt_password(password: &str, pwd_encrypt_salt: &str) -> Result<String
             }
         }
         32 => {
-            let cipher = Aes256::new_from_slice(key)
-                .map_err(|e| UestcClientError::CryptoError(e.to_string()))?;
+            log::debug!("Using AES-256 encryption");
+            let cipher = Aes256::new_from_slice(key).map_err(|e| UestcClientError::CryptoError {
+                message: format!("Failed to create AES-256 cipher: {}", e),
+                key_length: Some(key.len()),
+                source: None,
+            })?;
             for chunk in padded_input.chunks(16) {
                 let mut block = GenericArray::clone_from_slice(chunk);
                 for (b, v) in block.iter_mut().zip(current_iv.iter()) {
@@ -76,15 +94,25 @@ pub fn encrypt_password(password: &str, pwd_encrypt_salt: &str) -> Result<String
             }
         }
         _ => {
-            return Err(UestcClientError::CryptoError(format!(
-                "Invalid key length: {}",
-                key.len()
-            )));
+            log::warn!("Invalid key length for AES encryption: {} bytes", key.len());
+            return Err(UestcClientError::CryptoError {
+                message: format!(
+                    "Invalid key length: {} bytes (expected 16, 24, or 32)",
+                    key.len()
+                ),
+                key_length: Some(key.len()),
+                source: None,
+            });
         }
     }
 
     use base64::Engine as _;
-    Ok(base64::engine::general_purpose::STANDARD.encode(ciphertext))
+    let encoded = base64::engine::general_purpose::STANDARD.encode(ciphertext);
+    log::debug!(
+        "Password encryption successful (output length: {} bytes)",
+        encoded.len()
+    );
+    Ok(encoded)
 }
 
 #[cfg(test)]
@@ -139,8 +167,13 @@ mod tests {
         assert!(result.is_err());
 
         match result {
-            Err(UestcClientError::CryptoError(msg)) => {
-                assert!(msg.contains("Invalid key length"));
+            Err(UestcClientError::CryptoError {
+                message,
+                key_length,
+                ..
+            }) => {
+                assert!(message.contains("Invalid key length"));
+                assert_eq!(key_length, Some(5));
             }
             _ => panic!("Expected CryptoError"),
         }

@@ -11,23 +11,71 @@ use thiserror::Error;
 
 #[derive(Error, Debug)]
 pub enum UestcClientError {
-    #[error("Network error: {0}")]
-    NetworkError(#[from] reqwest::Error),
+    #[error("Network error: {message}")]
+    NetworkError {
+        message: String,
+        #[source]
+        source: reqwest::Error,
+    },
 
-    #[error("Parse error: {0}")]
-    ParseError(String),
+    #[error("HTML parsing failed: {message}")]
+    HtmlParseError {
+        message: String,
+        #[source]
+        source: Option<Box<dyn std::error::Error + Send + Sync>>,
+    },
 
-    #[error("Crypto error: {0}")]
-    CryptoError(String),
+    #[error("XML parsing failed: {message}")]
+    XmlParseError {
+        message: String,
+        #[source]
+        source: Option<Box<dyn std::error::Error + Send + Sync>>,
+    },
 
-    #[error("Login failed: {0}")]
-    LoginFailed(String),
+    #[error("Password encryption failed: {message}")]
+    CryptoError {
+        message: String,
+        key_length: Option<usize>,
+        #[source]
+        source: Option<Box<dyn std::error::Error + Send + Sync>>,
+    },
 
-    #[error("Logout failed: {0}")]
-    LogoutFailed(String),
+    #[error("Login failed: {message}")]
+    LoginFailed {
+        message: String,
+        username: Option<String>,
+    },
 
-    #[error("Cookie error: {0}")]
-    CookieError(String),
+    #[error("Logout failed: {message}")]
+    LogoutFailed { message: String },
+
+    #[error("Cookie operation failed: {operation} - {message}")]
+    CookieError {
+        operation: String,
+        file_path: Option<String>,
+        message: String,
+        #[source]
+        source: Option<Box<dyn std::error::Error + Send + Sync>>,
+    },
+
+    #[error("Session expired or invalid")]
+    SessionExpired,
+
+    #[error("WeChat QR code operation failed: {message}")]
+    WeChatError { message: String },
+
+    #[error("Client initialization failed: {message}")]
+    ClientInitError { message: String },
+}
+
+// Helper implementations for backward compatibility
+impl From<reqwest::Error> for UestcClientError {
+    fn from(err: reqwest::Error) -> Self {
+        UestcClientError::NetworkError {
+            message: err.to_string(),
+            source: err,
+        }
+    }
 }
 
 pub type Result<T> = std::result::Result<T, UestcClientError>;
