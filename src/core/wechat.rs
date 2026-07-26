@@ -1,6 +1,6 @@
 use crate::{Result, UestcClientError};
-use quick_xml::events::Event;
 use quick_xml::Reader;
+use quick_xml::events::Event;
 use regex::Regex;
 use std::time::{Duration, Instant};
 use url::Url;
@@ -101,7 +101,10 @@ impl WechatAuthParams {
 
 /// Parse UUID from WeChat QR code XML response
 pub fn parse_qr_uuid_from_xml(xml_text: &str) -> Result<String> {
-    log::debug!("Parsing QR UUID from XML response ({} bytes)", xml_text.len());
+    log::debug!(
+        "Parsing QR UUID from XML response ({} bytes)",
+        xml_text.len()
+    );
 
     let mut reader = Reader::from_str(xml_text);
     reader.config_mut().trim_text(true);
@@ -184,11 +187,11 @@ pub fn display_qr_in_terminal(uuid: &str) -> Result<()> {
 
 #[derive(Debug, PartialEq)]
 pub enum ScanStatus {
-    Waiting,       // 408: Waiting for scan
-    Scanned,       // 404: Scanned, waiting for confirmation
-    Confirmed,     // 405: Login confirmed
-    Expired,       // 402: QR code expired
-    Unknown(i32),  // Other status codes
+    Waiting,      // 408: Waiting for scan
+    Scanned,      // 404: Scanned, waiting for confirmation
+    Confirmed,    // 405: Login confirmed
+    Expired,      // 402: QR code expired
+    Unknown(i32), // Other status codes
 }
 
 pub struct ScanResult {
@@ -219,11 +222,10 @@ pub fn build_poll_url(uuid: &str, last_code: Option<&str>) -> String {
 pub fn parse_scan_status(text: &str) -> Result<ScanResult> {
     log::debug!("Parsing WeChat scan status from response");
 
-    let errcode_re = Regex::new(r"window\.wx_errcode=(\d+)").map_err(|e| {
-        UestcClientError::WeChatError {
+    let errcode_re =
+        Regex::new(r"window\.wx_errcode=(\d+)").map_err(|e| UestcClientError::WeChatError {
             message: format!("Regex compilation error: {}", e),
-        }
-    })?;
+        })?;
 
     let status = if let Some(caps) = errcode_re.captures(text) {
         let code: i32 = caps[1].parse().unwrap_or(0);
@@ -450,9 +452,7 @@ mod tests {
     fn a_known_status_resets_the_unknown_counter() {
         let mut guard = ScanPollGuard::new();
         for _ in 0..MAX_CONSECUTIVE_UNKNOWN_STATUS - 1 {
-            guard
-                .record_status(&ScanStatus::Unknown(999))
-                .expect("below limit");
+            guard.record_status(&ScanStatus::Unknown(999)).expect("below limit");
         }
 
         guard

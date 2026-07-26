@@ -37,12 +37,11 @@ pub fn parse_login_page(html: &str) -> Result<LoginPageInfo> {
     }
 
     // Parse form data
-    let form_selector = Selector::parse("div#pwdLoginDiv input").map_err(|e| {
-        UestcClientError::HtmlParseError {
+    let form_selector =
+        Selector::parse("div#pwdLoginDiv input").map_err(|e| UestcClientError::HtmlParseError {
             message: format!("Failed to parse form selector: {:?}", e),
             source: None,
-        }
-    })?;
+        })?;
 
     let mut form_data = HashMap::new();
     let mut pwd_encrypt_salt = None;
@@ -60,10 +59,7 @@ pub fn parse_login_page(html: &str) -> Result<LoginPageInfo> {
         }
     }
 
-    log::debug!(
-        "Found {} form fields in login page",
-        form_data.len()
-    );
+    log::debug!("Found {} form fields in login page", form_data.len());
 
     // Python: assert pwdEncryptSalt, "Failed to get pwdEncryptSalt"
     let pwd_encrypt_salt = pwd_encrypt_salt.ok_or_else(|| {
@@ -91,13 +87,10 @@ pub fn extract_error_message(html: &str) -> Option<String> {
     let document = Html::parse_document(html);
     let error_selector = Selector::parse("span#showErrorTip").ok()?;
 
-    let error_msg = document
-        .select(&error_selector)
-        .next()
-        .and_then(|el| {
-            let text = el.text().collect::<String>().trim().to_string();
-            if text.is_empty() { None } else { Some(text) }
-        });
+    let error_msg = document.select(&error_selector).next().and_then(|el| {
+        let text = el.text().collect::<String>().trim().to_string();
+        if text.is_empty() { None } else { Some(text) }
+    });
 
     if let Some(ref msg) = error_msg {
         log::debug!("Extracted error message from login page: {}", msg);

@@ -44,11 +44,12 @@ pub fn encrypt_password(password: &str, pwd_encrypt_salt: &str) -> Result<String
     match key.len() {
         16 => {
             log::debug!("Using AES-128 encryption");
-            let cipher = Aes128::new_from_slice(key).map_err(|e| UestcClientError::CryptoError {
-                message: format!("Failed to create AES-128 cipher: {}", e),
-                key_length: Some(key.len()),
-                source: None,
-            })?;
+            let cipher =
+                Aes128::new_from_slice(key).map_err(|e| UestcClientError::CryptoError {
+                    message: format!("Failed to create AES-128 cipher: {}", e),
+                    key_length: Some(key.len()),
+                    source: None,
+                })?;
             for chunk in padded_input.chunks(16) {
                 let mut block = GenericArray::clone_from_slice(chunk);
                 for (b, v) in block.iter_mut().zip(current_iv.iter()) {
@@ -61,11 +62,12 @@ pub fn encrypt_password(password: &str, pwd_encrypt_salt: &str) -> Result<String
         }
         24 => {
             log::debug!("Using AES-192 encryption");
-            let cipher = Aes192::new_from_slice(key).map_err(|e| UestcClientError::CryptoError {
-                message: format!("Failed to create AES-192 cipher: {}", e),
-                key_length: Some(key.len()),
-                source: None,
-            })?;
+            let cipher =
+                Aes192::new_from_slice(key).map_err(|e| UestcClientError::CryptoError {
+                    message: format!("Failed to create AES-192 cipher: {}", e),
+                    key_length: Some(key.len()),
+                    source: None,
+                })?;
             for chunk in padded_input.chunks(16) {
                 let mut block = GenericArray::clone_from_slice(chunk);
                 for (b, v) in block.iter_mut().zip(current_iv.iter()) {
@@ -78,11 +80,12 @@ pub fn encrypt_password(password: &str, pwd_encrypt_salt: &str) -> Result<String
         }
         32 => {
             log::debug!("Using AES-256 encryption");
-            let cipher = Aes256::new_from_slice(key).map_err(|e| UestcClientError::CryptoError {
-                message: format!("Failed to create AES-256 cipher: {}", e),
-                key_length: Some(key.len()),
-                source: None,
-            })?;
+            let cipher =
+                Aes256::new_from_slice(key).map_err(|e| UestcClientError::CryptoError {
+                    message: format!("Failed to create AES-256 cipher: {}", e),
+                    key_length: Some(key.len()),
+                    source: None,
+                })?;
             for chunk in padded_input.chunks(16) {
                 let mut block = GenericArray::clone_from_slice(chunk);
                 for (b, v) in block.iter_mut().zip(current_iv.iter()) {
