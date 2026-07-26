@@ -1,31 +1,22 @@
 use super::AUTH_SERVER_URL;
+use super::cookie_persistence::{
+    cookie_count, load_encrypted_cookie_store, remove_cookie_file, save_encrypted_cookie_store,
+};
 use crate::{Result, UestcClientError, core};
+use cookie_store::CookieStore;
 use reqwest::blocking::{Client, RequestBuilder};
 use reqwest::{IntoUrl, Method};
-use std::fs;
+use reqwest_cookie_store::CookieStoreMutex;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
-use cookie_store::CookieStore;
-use reqwest_cookie_store::CookieStoreMutex;
-use serde::{Deserialize, Serialize};
 
 const DEFAULT_COOKIE_FILE: &str = "uestc_cookies.json";
-
-#[derive(Serialize, Deserialize, Debug)]
-struct SerializableCookie {
-    name: String,
-    value: String,
-    domain: String,
-    path: String,
-    expires: Option<i64>,
-    secure: bool,
-    http_only: bool,
-}
 
 pub struct UestcBlockingClient {
     client: Client,
     cookie_store: Arc<CookieStoreMutex>,
     cookie_file: PathBuf,
+    cookie_encryption_secret: Option<Vec<u8>>,
 }
 
 impl UestcBlockingClient {
@@ -34,19 +25,48 @@ impl UestcBlockingClient {
     }
 
     pub fn with_cookie_file<P: AsRef<Path>>(path: P) -> Self {
+        Self::with_cookie_file_and_secret(path, None)
+    }
+
+    pub fn with_encrypted_cookie_file<P, S>(path: P, encryption_secret: S) -> Self
+    where
+        P: AsRef<Path>,
+        S: AsRef<[u8]>,
+    {
+        Self::with_cookie_file_and_secret(path, Some(encryption_secret.as_ref().to_vec()))
+    }
+
+    fn with_cookie_file_and_secret<P: AsRef<Path>>(
+        path: P,
+        cookie_encryption_secret: Option<Vec<u8>>,
+    ) -> Self {
         let cookie_file = path.as_ref().to_path_buf();
 
         // Try to load existing cookies
         let cookie_store = if cookie_file.exists() {
             log::debug!("发现 cookie 文件: {:?}", cookie_file);
-            match Self::load_cookie_store(&cookie_file) {
-                Ok(store) => {
-                    let count = store.lock().unwrap().iter_any().count();
-                    log::debug!("成功加载 {} 个 cookies", count);
-                    store
+            match cookie_encryption_secret.as_deref() {
+                Some(secret) if !secret.is_empty() => {
+                    match load_encrypted_cookie_store(&cookie_file, secret) {
+                        Ok(store) => {
+                            log::debug!("成功加载 {} 个加密 cookies", cookie_count(&store));
+                            store
+                        }
+                        Err(e) => {
+                            log::warn!("加载加密 cookie 失败: {}", e);
+                            remove_cookie_file(
+                                &cookie_file,
+                                "无法按加密格式读取，不保留旧格式或损坏的 cookie",
+                            );
+                            Arc::new(CookieStoreMutex::new(CookieStore::default()))
+                        }
+                    }
                 }
-                Err(e) => {
-                    log::warn!("加载 cookie 失败: {}", e);
+                _ => {
+                    log::warn!(
+                        "cookie 文件存在但未配置加密密钥，已忽略该文件以避免明文 cookie 落盘"
+                    );
+                    remove_cookie_file(&cookie_file, "未配置加密密钥，不保留现有 cookie 文件");
                     Arc::new(CookieStoreMutex::new(CookieStore::default()))
                 }
             }
@@ -67,6 +87,7 @@ impl UestcBlockingClient {
             client,
             cookie_store,
             cookie_file,
+            cookie_encryption_secret,
         }
     }
 
@@ -76,108 +97,27 @@ impl UestcBlockingClient {
             client,
             cookie_store,
             cookie_file: PathBuf::from(DEFAULT_COOKIE_FILE),
+            cookie_encryption_secret: None,
         }
-    }
-
-    fn load_cookie_store(path: &Path) -> Result<Arc<CookieStoreMutex>> {
-        let json = fs::read_to_string(path).map_err(|e| UestcClientError::CookieError {
-            operation: "read".to_string(),
-            file_path: Some(path.display().to_string()),
-            message: format!("Failed to read cookie file: {}", e),
-            source: Some(Box::new(e)),
-        })?;
-
-        let cookies: Vec<SerializableCookie> =
-            serde_json::from_str(&json).map_err(|e| UestcClientError::CookieError {
-                operation: "deserialize".to_string(),
-                file_path: Some(path.display().to_string()),
-                message: format!("Failed to deserialize cookies: {}", e),
-                source: Some(Box::new(e)),
-            })?;
-
-        let mut store = CookieStore::default();
-
-        // Convert SerializableCookie back to cookie_store format
-        for sc in cookies {
-            // Skip cookies with empty domain
-            if sc.domain.is_empty() {
-                log::debug!("跳过空 domain 的 cookie: {}", sc.name);
-                continue;
-            }
-
-            let mut cookie_str = format!("{}={}", sc.name, sc.value);
-            cookie_str.push_str(&format!("; Domain={}", sc.domain));
-            cookie_str.push_str(&format!("; Path={}", sc.path));
-
-            if sc.secure {
-                cookie_str.push_str("; Secure");
-            }
-            if sc.http_only {
-                cookie_str.push_str("; HttpOnly");
-            }
-            if let Some(expires) = sc.expires {
-                cookie_str.push_str(&format!("; Max-Age={}", expires));
-            }
-
-            // Parse and insert the cookie
-            if let Ok(cookie) = cookie_str.parse::<cookie_store::RawCookie>() {
-                if let Ok(url) = url::Url::parse(&format!("https://{}", sc.domain)) {
-                    if let Err(e) = store.insert_raw(&cookie, &url) {
-                        log::debug!("插入 cookie 失败: {:?}", e);
-                    }
-                } else {
-                    log::debug!("无法解析 domain: {}", sc.domain);
-                }
-            }
-        }
-
-        Ok(Arc::new(CookieStoreMutex::new(store)))
     }
 
     fn save_cookie_store(&self) -> Result<()> {
-        let store = self.cookie_store.lock().unwrap();
-
-        // Convert cookies to SerializableCookie format
-        let cookies: Vec<SerializableCookie> = store
-            .iter_any()
-            .map(|c| {
-                // Use a default domain if the cookie doesn't have one
-                let domain = c.domain()
-                    .filter(|d| !d.is_empty())
-                    .unwrap_or("idas.uestc.edu.cn");
-
-                SerializableCookie {
-                    name: c.name().to_string(),
-                    value: c.value().to_string(),
-                    domain: domain.to_string(),
-                    path: c.path().unwrap_or("/").to_string(),
-                    expires: None, // Treat all as session cookies for simplicity
-                    secure: c.secure().unwrap_or(false),
-                    http_only: c.http_only().unwrap_or(false),
-                }
-            })
-            .collect();
-
-        let count = cookies.len();
-        log::debug!("保存 {} 个 cookies 到: {:?}", count, self.cookie_file);
-
-        let json = serde_json::to_string_pretty(&cookies).map_err(|e| {
+        let secret = self.cookie_encryption_secret.as_deref().ok_or_else(|| {
             UestcClientError::CookieError {
-                operation: "serialize".to_string(),
+                operation: "encrypt".to_string(),
                 file_path: Some(self.cookie_file.display().to_string()),
-                message: format!("Failed to serialize cookies: {}", e),
-                source: Some(Box::new(e)),
+                message: "Cookie encryption secret is not configured; refusing to write plaintext cookies".to_string(),
+                source: None,
             }
         })?;
 
-        fs::write(&self.cookie_file, json).map_err(|e| UestcClientError::CookieError {
-            operation: "write".to_string(),
-            file_path: Some(self.cookie_file.display().to_string()),
-            message: format!("Failed to write cookie file: {}", e),
-            source: Some(Box::new(e)),
-        })?;
-
-        log::debug!("cookies 已成功保存");
+        log::debug!(
+            "加密保存 {} 个 cookies 到: {:?}",
+            cookie_count(&self.cookie_store),
+            self.cookie_file
+        );
+        save_encrypted_cookie_store(&self.cookie_file, &self.cookie_store, secret)?;
+        log::debug!("cookies 已成功加密保存");
         Ok(())
     }
 
@@ -261,11 +201,8 @@ impl UestcBlockingClient {
         if resp.status().is_success() {
             log::info!("Logout successful");
             // Clear cookies after logout
-            if let Err(e) = fs::remove_file(&self.cookie_file) {
-                log::warn!(
-                    "Failed to delete cookie file after logout: {}",
-                    e
-                );
+            if let Err(e) = std::fs::remove_file(&self.cookie_file) {
+                log::warn!("Failed to delete cookie file after logout: {}", e);
             }
             return Ok(());
         }
@@ -273,9 +210,7 @@ impl UestcBlockingClient {
         let error_msg = format!("Logout failed with status: {}", resp.status());
         log::error!("{}", error_msg);
 
-        Err(UestcClientError::LogoutFailed {
-            message: error_msg,
-        })
+        Err(UestcClientError::LogoutFailed { message: error_msg })
     }
 
     /// Login using WeChat QR code
