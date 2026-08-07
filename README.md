@@ -10,6 +10,7 @@ A minimal reqwest client for UESTC (University of Electronic Science and Technol
 - **Multiple Login Methods**:
   - Username/password login with automatic password encryption
   - WeChat QR code login via terminal
+- **Reauth (Multi-Factor) Support**: automatic detection of the multifactor `reauth` requirement and a three-step API to complete it (SMS / WeCom / email-style dynamic codes, WeChat scan, password)
 - **Automatic Cookie Persistence**: Transparently saves and loads cookies, just like a browser.
 - **Session Management**: Automatically checks if session is active before logging in.
 - **Reqwest Wrapper**: Exposes `reqwest`'s request builder for full flexibility.
@@ -95,9 +96,59 @@ let client = UestcClient::with_cookie_file("my_cookies.json");
 client.login("your_student_id", "your_password").await?;
 ```
 
+### Multi-Factor Reauth (Password Login)
+
+When the account requires multi-factor authentication, `login()` returns
+`UestcClientError::ReauthRequired` (carrying the server-rendered available methods)
+instead of silently "succeeding" with a locked TGT. Complete it with the three-step API:
+
+```rust
+use uestc_client::{UestcClientError, ReauthMethodKind};
+
+let mut ctx = match client.login("your_student_id", "your_password").await {
+    Ok(()) => {
+        // No reauth needed
+        // ... use the session ...
+        return;
+    }
+    Err(UestcClientError::ReauthRequired { context }) => context,
+    Err(e) => return Err(e.into()),
+};
+
+// Pick a method from ctx.available_methods (server-rendered, already filtered by account)
+let method = ctx
+    .available_methods
+    .iter()
+    .find(|m| m.kind() == ReauthMethodKind::Wechat)
+    .unwrap(); // e.g. WeChat scan
+
+match method.kind() {
+    // WeChat scan: QR shown in terminal, scan with phone WeChat. No code needed.
+    ReauthMethodKind::Wechat => {
+        client.submit_reauth(&ctx, method, None, None, false).await?;
+    }
+    // Dynamic codes (SMS / WeCom / email / ...): switch method, request code, then submit
+    ReauthMethodKind::DynamicCode => {
+        client.change_reauth_type(&mut ctx, method).await?;
+        client.send_reauth_code(&ctx, method).await?;
+        let code = prompt("Enter the code: ");
+        client.submit_reauth(&ctx, method, Some(&code), None, false).await?;
+    }
+    // Password reauth (if enabled for the account)
+    ReauthMethodKind::Password => {
+        client.submit_reauth(&ctx, method, None, Some("your_password"), false).await?;
+    }
+    _ => unreachable!(),
+}
+```
+
+The last `bool` parameter of `submit_reauth` is `skip_tmp_reauth` (trust-device dialog):
+`false` = this time only (default), `true` = trust this device.
+
 ### Blocking Client
 
-Enable the `blocking` feature in your `Cargo.toml`.
+Enable the `blocking` feature in your `Cargo.toml`. The blocking client mirrors the
+async API, including reauth support.
 
 #### Username/Password Login
 
