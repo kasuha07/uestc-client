@@ -1,5 +1,8 @@
 # ADR-0002: 微信扫码登录按"不触发 reauth"处理
 
+> 2026-10-31：本决策已被远端安全修复 `1c4f57d` 取代。微信扫码后若落入 reauth 页，
+> `wechat_login()` 返回 `ReauthRequired`，不再仅记录 warning 后返回成功。以下保留原决策背景。
+
 2026-08-07 决定：`wechat_login()`（登录页扫码，`combinedLogin.do?type=weixin` 无 `reAuth`
 参数）保持既有成功判定，不因扫码后可能落回 reauth 页而报错——仅在该场景实际发生时记
 warning 日志兜底。
