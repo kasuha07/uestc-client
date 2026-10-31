@@ -21,7 +21,7 @@ Add this to your `Cargo.toml`:
 
 ```toml
 [dependencies]
-uestc-client = "0.3.0"
+uestc-client = "0.5.0"
 tokio = { version = "1", features = ["full"] }
 ```
 
@@ -29,7 +29,7 @@ To use the blocking client, enable the `blocking` feature:
 
 ```toml
 [dependencies]
-uestc-client = { version = "0.2.1", features = ["blocking"] }
+uestc-client = { version = "0.5.0", features = ["blocking"] }
 ```
 
 ## Usage
@@ -98,7 +98,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
   cannot be decrypted, the client starts with an empty session and **leaves the file untouched**.
 - `try_with_encrypted_cookie_file(path, secret)` does the same but returns an error instead,
   so you can decide how to recover.
-- Plaintext cookie files written by uestc-client 0.3.0 and earlier are no longer loaded
+- In 0.5.0, plaintext cookie files written by earlier versions are no longer loaded
   implicitly. Migrate them once, explicitly:
 
 ```rust
