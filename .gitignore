@@ -16,3 +16,8 @@ Cargo.lock
 
 # Credentials
 uestc_cookies.json
+
+# Local authentication captures are never test fixtures.
+/work/
+/captures/
+*.har

@@ -412,13 +412,14 @@ fn truncate(body: &str) -> String {
 mod tests {
     use super::*;
 
-    /// 脱敏后的 reauth 页样本：保留真实页面结构（数盾 OTP 假块在前、真块在后），
-    /// 但姓名、账号、salt 与可用方式组合均已替换为合成值，不对应任何真实账号。
-    /// 用于验证「取目标键命中最多块」与「键带双引号」解析。
+    /// 最小合成样本，不含生产抓取内容或任何真实账号的身份与 MFA 配置。
+    /// 前块仅命中一个目标键，后块命中全部目标键；保留双引号键、null、
+    /// 值内 HTML 的冒号与未转义引号，以及平铺/更多 Tab 结构。
+    /// 夹具隐私策略与新增规则见 docs/testing.md。
     const REAUTH_PAGE: &str = include_str!("../../tests/fixtures/reauth-page.html");
 
     #[test]
-    fn parses_real_reauth_page() {
+    fn parses_synthetic_reauth_page() {
         let ctx = parse_reauth_page(REAUTH_PAGE).expect("should parse");
         assert_eq!(ctx.re_auth_type, "8");
         assert_eq!(ctx.is_multifactor, "true");
@@ -428,7 +429,7 @@ mod tests {
     }
 
     #[test]
-    fn parses_reauth_tabs_from_real_page() {
+    fn parses_reauth_tabs_from_synthetic_page() {
         let tabs = parse_reauth_tabs(REAUTH_PAGE);
         let ids: Vec<i32> = tabs.iter().map(|m| m.id).collect();
         assert_eq!(ids, vec![8, 3, 11]);
@@ -445,11 +446,11 @@ mod tests {
         let html = r##"<script>
             var reAuthParams = {color:"#FF7D00>",_jar:{map:{},file:null}};
             var reAuthParams = {"isSleepAccount":"0","service":null,"reAuthType":"3",
-                "isMultifactor":"true","reAuthUserId":"2025XXXXXXXX","pwdEncryptSalt":"AbcDef1234567890"};
+                "isMultifactor":"true","reAuthUserId":"TESTUSER0001","pwdEncryptSalt":"TestSalt00000000"};
         </script>"##;
         let ctx = parse_reauth_page(html).expect("should parse");
         assert_eq!(ctx.re_auth_type, "3");
-        assert_eq!(ctx.pwd_encrypt_salt.as_deref(), Some("AbcDef1234567890"));
+        assert_eq!(ctx.pwd_encrypt_salt.as_deref(), Some("TestSalt00000000"));
     }
 
     #[test]
@@ -502,7 +503,7 @@ mod tests {
             service: String::new(),
             re_auth_type: "3".to_string(),
             is_multifactor: "true".to_string(),
-            re_auth_user_id: "2025XXXXXXXX".to_string(),
+            re_auth_user_id: "TESTUSER0001".to_string(),
             pwd_encrypt_salt: None,
             principal: None,
         };
