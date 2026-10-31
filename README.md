@@ -10,8 +10,8 @@ A minimal reqwest client for UESTC (University of Electronic Science and Technol
 - **Multiple Login Methods**:
   - Username/password login with automatic password encryption
   - WeChat QR code login via terminal
-- **Automatic Cookie Persistence**: Transparently saves and loads cookies, just like a browser.
-- **Session Management**: Automatically checks if session is active before logging in.
+- **Encrypted Cookie Persistence**: Optionally saves and loads cookies encrypted at rest (AES-256-GCM).
+- **Session Management**: Reuses an active session only when it belongs to the account being logged in.
 - **Reqwest Wrapper**: Exposes `reqwest`'s request builder for full flexibility.
 
 ## Installation
@@ -42,11 +42,11 @@ use uestc_client::UestcClient;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    // Create a new client with automatic cookie persistence
-    let client = UestcClient::new();
+    // Create a client whose cookies are persisted encrypted at rest
+    let client = UestcClient::with_encrypted_cookie_file("uestc_cookies.json", "a-strong-secret");
 
-    // Login - cookies are automatically saved and reused
-    // If valid cookies exist, login is skipped automatically
+    // Login - cookies are encrypted, saved and reused.
+    // If the saved session belongs to this account, login is skipped automatically.
     client.login("your_student_id", "your_password").await?;
 
     // Now you can make authenticated requests
@@ -56,7 +56,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     println!("Response status: {}", resp.status());
 
-    // Logout when done (clears cookies)
+    // Logout when done: ends the server session and clears local session cookies
+    // (only the trusted-device fingerprint cookie is kept).
     client.logout().await?;
 
     Ok(())
@@ -88,12 +89,33 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 }
 ```
 
-You can also specify a custom cookie file path:
+#### Cookie persistence
+
+- `UestcClient::new()` / `with_cookie_file(path)` keep cookies **in memory only**. An existing
+  file at `path` is never read, written or deleted.
+- `with_encrypted_cookie_file(path, secret)` persists cookies encrypted at rest. If the file
+  cannot be decrypted, the client starts with an empty session and **leaves the file untouched**.
+- `try_with_encrypted_cookie_file(path, secret)` does the same but returns an error instead,
+  so you can decide how to recover.
+- Plaintext cookie files written by uestc-client 0.3.0 and earlier are no longer loaded
+  implicitly. Migrate them once, explicitly:
 
 ```rust
-let client = UestcClient::with_cookie_file("my_cookies.json");
-client.login("your_student_id", "your_password").await?;
+uestc_client::migrate_plaintext_cookie_file("uestc_cookies.json", "a-strong-secret")?;
+let client = UestcClient::try_with_encrypted_cookie_file("uestc_cookies.json", "a-strong-secret")?;
 ```
+
+#### Session ownership and logout
+
+- `login(username, ..)` reuses a saved session only if it was created by a password login
+  (or reauth) for the same `username`. Sessions of another account, or of unknown ownership
+  (WeChat login, files saved by older versions), are discarded and a fresh login is performed.
+- `logout()` ends the server session and clears all local session cookies, in memory and on
+  disk, keeping only the `MULTIFACTOR_BROWSER_FINGERPRINT` trusted-device cookie so the next
+  login is not asked for reauth again.
+- `logout_and_forget_device()` also removes that fingerprint cookie.
+- If the WeChat QR login lands on a multi-factor reauth page, `wechat_login()` returns
+  `UestcClientError::ReauthRequired` instead of reporting success.
 
 ### Blocking Client
 
@@ -116,7 +138,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     println!("Response status: {}", resp.status());
 
-    // Logout
+    // Logout (clears local session cookies, keeps the trusted-device fingerprint)
     client.logout()?;
 
     Ok(())
